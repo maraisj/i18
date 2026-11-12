@@ -35,6 +35,33 @@ mvn -f app-abd/pom.xml exec:java
 
 The app's dependencies form its plugin composition. The host finds the selected plugins through `ServiceLoader`; changing the dependencies in an app module changes the available dockable applications. The language selector broadcasts locale changes, and each plugin refreshes its UI from resources packaged in its own JAR.
 
+## Parameterized translations
+
+There is no single translation resource for the whole application. The host owns its bundle, and each plugin owns a separate bundle inside its module. A plugin can use `MessageFormat` placeholders for dynamic values. For example, in that plugin's `Messages.properties`:
+
+```properties
+greeting=Hello, {0}. How is {1} doing?
+```
+
+The localized bundles define the same key, with translated text and placeholders for the same values (the order may differ):
+
+```properties
+# Messages_fr.properties
+greeting=Bonjour {0} ! Comment va {1} ?
+```
+
+Format the message with the active locale:
+
+```java
+String pattern = ResourceBundle
+        .getBundle("com.example.dockingapp.plugin.greeting.Messages", locale)
+        .getString("greeting");
+String message = new MessageFormat(pattern, locale)
+        .format(new Object[] { userName, friendName });
+```
+
+`{0}` and `{1}` refer to arguments in the supplied array. `MessageFormat` also supports formatted numbers, dates, and times. Use `new MessageFormat(pattern, locale)` so formatting follows the selected application locale.
+
 ## Developing an independently owned plugin
 
 Implement `com.example.dockingapp.plugin.Plugin`, provide a no-argument constructor, and register its class in `src/main/resources/META-INF/services/com.example.dockingapp.plugin.Plugin`. Keep its `Messages.properties` and localized variants under that plugin module's `src/main/resources`. Add its artifact as a dependency of each app that should include it.
