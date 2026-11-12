@@ -1,22 +1,40 @@
 # Swing Docking Plugins
 
-A small Maven desktop application demonstrating a Swing host with dockable plugin applications. The host owns the main `JFrame`, docking area, and language selector. Each plugin contributes a Swing application window and owns its own translation bundle.
+A Maven multi-module demo of a Swing docking host that composes independently packaged plugins. Each plugin is a JAR with its own translation files and `ServiceLoader` provider declaration. Each app module selects its plugin set through ordinary Maven dependencies.
 
-## Requirements
+See [MAVEN-ARCHITECTURE.md](MAVEN-ARCHITECTURE.md) for the parent POM, aggregator, BOM, module ownership, and packaging explanation.
 
-- JDK 17 or newer
-- Maven 3.8 or newer
+## Modules
 
-## Run
+| Module | Purpose |
+| --- | --- |
+| `plugin-api` | Shared provider contract |
+| `docking-host` | JFrame, DockingFrames integration, locale selector, provider discovery |
+| `plugin-greeting` | Welcome application and its English/French/German bundles |
+| `plugin-counter` | Counter application and its own bundles |
+| `plugin-notes` | Notes application and its own bundles |
+| `app-a` | Host + Greeting |
+| `app-ab` | Host + Greeting + Counter |
+| `app-abd` | Host + Greeting + Counter + Notes |
+
+## Build and run
+
+Requirements: JDK 17+, Maven 3.8+.
+
+Build and install all modules into the local Maven repository:
 
 ```sh
-mvn compile exec:java
+mvn install
 ```
 
-The demo opens three dockable applications: Welcome, Counter, and Notes. Drag their tabs to rearrange or detach them. Use the language selector in the host toolbar to switch between English, French, and German; the host and every plugin update immediately.
+Then run one composition (substitute `app-a` or `app-ab`):
 
-## Adding a plugin
+```sh
+mvn -f app-abd/pom.xml exec:java
+```
 
-Implement `Plugin` (usually by extending `LocalizedPlugin`), create a `DefaultSingleCDockable` containing your Swing UI, and refresh all visible strings in `updateTexts()`. Add a plugin-owned `Messages.properties` bundle and localized variants next to the other plugin resources. Register the plugin in `DemoApplication`.
+The app's dependencies form its plugin composition. The host finds the selected plugins through `ServiceLoader`; changing the dependencies in an app module changes the available dockable applications. The language selector broadcasts locale changes, and each plugin refreshes its UI from resources packaged in its own JAR.
 
-Plugins receive the shared `LocaleManager`, but own their translation keys and resources. The locale manager sends updates on Swing's event dispatch thread.
+## Developing an independently owned plugin
+
+Implement `com.example.dockingapp.plugin.Plugin`, provide a no-argument constructor, and register its class in `src/main/resources/META-INF/services/com.example.dockingapp.plugin.Plugin`. Keep its `Messages.properties` and localized variants under that plugin module's `src/main/resources`. Add its artifact as a dependency of each app that should include it.
