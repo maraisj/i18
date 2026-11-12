@@ -1,40 +1,37 @@
 package com.example.dockingapp.plugin.notes;
 
 import com.example.dockingapp.plugin.Plugin;
+import com.example.dockingapp.plugin.TranslationService;
 
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import java.awt.BorderLayout;
-import java.util.Locale;
-import java.util.ResourceBundle;
 
 /** A simple notes application contributed by this plugin artifact. */
 public final class NotesPlugin implements Plugin {
     private final JLabel prompt = new JLabel();
     private final JTextArea notes = new JTextArea();
+    private TranslationService translations;
 
     @Override public String getId() { return "notes"; }
-    @Override public String getTitle(Locale locale) { return text("title", locale); }
+    @Override public void initialize(TranslationService translations) { this.translations = translations; }
+    @Override public String getTitle() { return translations.text("title"); }
 
     @Override
-    public JPanel createComponent(Locale locale) {
+    public JPanel createComponent() {
         JPanel panel = new JPanel(new BorderLayout(4, 4));
         panel.add(prompt, BorderLayout.NORTH);
         panel.add(new JScrollPane(notes), BorderLayout.CENTER);
-        updateTexts(locale);
+        updateTexts();
         return panel;
     }
 
-    @Override public void localeChanged(Locale locale) { updateTexts(locale); }
+    @Override public void localeChanged() { updateTexts(); }
 
-    private void updateTexts(Locale locale) {
-        prompt.setText(text("prompt", locale));
-        notes.setToolTipText(text("hint", locale));
-    }
-
-    private String text(String key, Locale locale) {
-        return ResourceBundle.getBundle("com.example.dockingapp.plugin.notes.Messages", locale).getString(key);
+    private void updateTexts() {
+        prompt.setText(translations.text("prompt"));
+        notes.setToolTipText(translations.text("hint"));
     }
 }

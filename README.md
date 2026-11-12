@@ -21,23 +21,25 @@ See [MAVEN-ARCHITECTURE.md](MAVEN-ARCHITECTURE.md) for the parent POM, aggregato
 
 Requirements: JDK 17+, Maven 3.8+.
 
-Build and install all modules into the local Maven repository:
+From the project root, first build and install all modules into the local Maven repository:
 
 ```sh
 mvn install
 ```
 
-Then run one composition (substitute `app-a` or `app-ab`):
+Then run the selected app module (substitute `app-a` or `app-ab` for another composition):
 
 ```sh
 mvn -f app-abd/pom.xml exec:java
 ```
 
+Do not run `mvn exec:java` from the root directory: the root POM only aggregates the modules and has no application entry point. Run the goal against one of the `app-*` POMs as shown above.
+
 The app's dependencies form its plugin composition. The host finds the selected plugins through `ServiceLoader`; changing the dependencies in an app module changes the available dockable applications. The language selector broadcasts locale changes, and each plugin refreshes its UI from resources packaged in its own JAR.
 
 ## Parameterized translations
 
-There is no single translation resource for the whole application. The host owns its bundle, and each plugin owns a separate bundle inside its module. A plugin can use `MessageFormat` placeholders for dynamic values. For example, in that plugin's `Messages.properties`:
+There is no single translation resource file for the whole application. The host owns its bundle, and each plugin owns a separate bundle inside its module. The host gives each plugin a **plugin-scoped `TranslationService`** during initialization. The plugin looks up short keys without knowing its bundle path:
 
 ```properties
 greeting=Hello, {0}. How is {1} doing?
@@ -50,18 +52,14 @@ The localized bundles define the same key, with translated text and placeholders
 greeting=Bonjour {0} ! Comment va {1} ?
 ```
 
-Format the message with the active locale:
+In plugin code, request the message by key and pass placeholder values:
 
 ```java
-String pattern = ResourceBundle
-        .getBundle("com.example.dockingapp.plugin.greeting.Messages", locale)
-        .getString("greeting");
-String message = new MessageFormat(pattern, locale)
-        .format(new Object[] { userName, friendName });
+String message = translations.text("greeting", userName, friendName);
 ```
 
-`{0}` and `{1}` refer to arguments in the supplied array. `MessageFormat` also supports formatted numbers, dates, and times. Use `new MessageFormat(pattern, locale)` so formatting follows the selected application locale.
+The host binds that service to the plugin's bundle using the convention `com.example.dockingapp.plugin.<plugin-id>.Messages`, updates its locale when the user changes languages, and formats arguments with `MessageFormat` for that locale. `{0}` and `{1}` refer to the supplied values; localized bundles can reorder them. `MessageFormat` also supports formatted numbers, dates, and times. Plugins keep owning their resource files; the scoped service centralizes lookup and formatting without combining the files.
 
 ## Developing an independently owned plugin
 
-Implement `com.example.dockingapp.plugin.Plugin`, provide a no-argument constructor, and register its class in `src/main/resources/META-INF/services/com.example.dockingapp.plugin.Plugin`. Keep its `Messages.properties` and localized variants under that plugin module's `src/main/resources`. Add its artifact as a dependency of each app that should include it.
+Implement `com.example.dockingapp.plugin.Plugin`, provide a no-argument constructor, and register its class in `src/main/resources/META-INF/services/com.example.dockingapp.plugin.Plugin`. In `initialize`, store the provided `TranslationService`; use it for all plugin-owned text and refresh the UI in `localeChanged`. Keep its `Messages.properties` and localized variants under `src/main/resources/com/example/dockingapp/plugin/<plugin-id>/`. Add its artifact as a dependency of each app that should include it.

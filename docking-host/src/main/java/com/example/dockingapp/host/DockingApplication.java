@@ -25,14 +25,19 @@ public final class DockingApplication {
     private final CControl docking = new CControl(frame);
     private final JLabel localeLabel = new JLabel();
     private final Map<String, DefaultSingleCDockable> dockables = new LinkedHashMap<>();
+    private final Map<String, ResourceBundleTranslationService> translators = new LinkedHashMap<>();
     private Locale locale = Locale.ENGLISH;
 
     private DockingApplication(List<Plugin> plugins) {
         this.plugins = List.copyOf(plugins);
         configureFrame();
         for (Plugin plugin : this.plugins) {
+            ResourceBundleTranslationService translations =
+                    new ResourceBundleTranslationService(plugin.getId(), locale);
+            translators.put(plugin.getId(), translations);
+            plugin.initialize(translations);
             DefaultSingleCDockable dockable = new DefaultSingleCDockable(
-                    plugin.getId(), plugin.getTitle(locale), plugin.createComponent(locale));
+                    plugin.getId(), plugin.getTitle(), plugin.createComponent());
             docking.addDockable(dockable);
             dockable.setVisible(true);
             dockables.put(plugin.getId(), dockable);
@@ -73,10 +78,13 @@ public final class DockingApplication {
 
     private void changeLocale(Locale newLocale) {
         locale = Objects.requireNonNull(newLocale);
-        for (Plugin plugin : plugins) plugin.localeChanged(locale);
+        for (Plugin plugin : plugins) {
+            translators.get(plugin.getId()).setLocale(locale);
+            plugin.localeChanged();
+        }
         updateHostText();
         for (Plugin plugin : plugins) {
-            dockables.get(plugin.getId()).setTitleText(plugin.getTitle(locale));
+            dockables.get(plugin.getId()).setTitleText(plugin.getTitle());
         }
     }
 
